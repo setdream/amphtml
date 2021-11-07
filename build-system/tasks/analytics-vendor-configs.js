@@ -3,7 +3,6 @@ const argv = minimist(process.argv.slice(2));
 const debounce = require('../common/debounce');
 const fastGlob = require('fast-glob');
 const fs = require('fs-extra');
-const jsonminify = require('jsonminify');
 const {basename, dirname, extname, join} = require('path');
 const {endBuildStep} = require('./helpers');
 const {watchDebounceDelay} = require('./helpers');
@@ -42,20 +41,24 @@ async function analyticsVendorConfigs(opt_options) {
   for (const srcFile of srcFiles) {
     let destFile = join(destPath, basename(srcFile));
     let contents = await fs.readFile(srcFile, 'utf-8');
-    if (options.minify) {
-      contents = jsonminify(contents);
-    }
+    let parsed;
     // Report any parsing errors
     try {
-      JSON.parse(contents);
+      parsed = JSON.parse(contents);
     } catch (err) {
       // Only fail if not in watcher, so watch is not interrupted
       if (!options.calledByWatcher) {
         throw err;
       }
     }
+    if (options.minify) {
+      // We can only minify valid JSON
+      if (parsed) {
+        contents = JSON.stringify(parsed);
+      }
+    }
     // If not minifying, append .max to filename
-    if (!options.minify) {
+    else {
       const extension = extname(destFile);
       const base = basename(destFile, extension);
       const dir = dirname(destFile);
